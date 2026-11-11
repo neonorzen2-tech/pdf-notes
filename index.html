@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#1f2430">
+<meta name="color-scheme" content="light">
+<title>PDF-заметки</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#f3f4f7;color:#1b1d24;
+  font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column}
+[hidden]{display:none!important}
+
+/* ---------- Библиотека ---------- */
+#lib{background:#f3f4f7}
+.lib-head{display:flex;align-items:center;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#1f2430;color:#fff}
+.lib-head h1{flex:1;margin:0;font-size:21px;font-weight:650;letter-spacing:.2px}
+.icon-btn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center}
+.icon-btn:active{background:rgba(127,127,127,.28)}
+.lib-body{flex:1;overflow:auto;padding:14px 14px 110px}
+.hint{color:#59606f;font-size:15px;line-height:1.5;padding:6px 6px 14px}
+.hint b{color:#1b1d24}
+.empty{margin:26px 6px;padding:20px;border-radius:16px;background:#fff;box-shadow:0 1px 3px rgba(20,25,40,.08)}
+.empty h2{margin:0 0 8px;font-size:18px}
+.empty ol{margin:8px 0 0 20px;padding:0;color:#3b4150;line-height:1.55}
+.file{display:flex;align-items:center;gap:6px;background:#fff;border-radius:16px;margin-bottom:10px;padding:6px 6px 6px 16px;box-shadow:0 1px 3px rgba(20,25,40,.08)}
+.file:active{background:#eef0f6}
+.file .info{flex:1;min-width:0;padding:8px 0}
+.file .name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .meta{font-size:13.5px;color:#6b7282;margin-top:2px}
+.file .icon-btn{color:#8a90a0}
+.install{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#fff7dd;border:1px solid #f1dc93;font-size:14.5px}
+.install button{margin-left:auto;background:#1f2430;color:#fff;border-radius:10px;padding:9px 14px;font-weight:600}
+.fab{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));height:56px;border-radius:18px;background:#3b5bdb;color:#fff;font-weight:650;font-size:17px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 18px rgba(59,91,219,.38)}
+.fab:active{background:#2f4bc0}
+
+/* ---------- Читалка ---------- */
+#reader{background:#596071}
+.bar{display:flex;align-items:center;gap:2px;padding:env(safe-area-inset-top) 6px 0 4px;height:calc(56px + env(safe-area-inset-top));background:#1f2430;color:#fff;flex:none;z-index:5}
+.bar .ttl{flex:1;min-width:0;padding:0 6px}
+.bar .t1{font-weight:600;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .t2{font-size:12.5px;color:#aab1c5;margin-top:1px}
+.bar .icon-btn{width:42px}
+#btnStarMode{background:rgba(255,193,7,.14);color:#ffc107;width:46px;margin-left:4px}
+#btnStarMode.on{background:#ffc107;color:#3a2a00}
+#btnStarMode.on svg{fill:#3a2a00}
+#banner{position:absolute;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top));z-index:6;background:#ffc107;color:#2e2200;padding:9px 14px;border-radius:12px;font-size:14.5px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.3);display:flex;gap:10px;align-items:center;max-width:94vw;text-align:center}
+#viewer{flex:1;overflow:auto;position:relative;touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#pages{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px;width:max-content;min-width:100%;box-sizing:border-box;will-change:transform}
+#reader.sheet-open #pages{padding-bottom:calc(50vh + 12px);padding-bottom:calc(50dvh + 12px)}
+.page{position:relative;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);flex:none}
+.page canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.page .ov{position:absolute;inset:0;pointer-events:none}
+.page .ov>*{pointer-events:auto}
+#reader.star-mode .page{cursor:crosshair;outline:2px dashed rgba(255,193,7,.9);outline-offset:-2px}
+.star{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;display:grid;place-items:center;border-radius:50%;z-index:2}
+.star svg{width:30px;height:30px;stroke:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+.star.active::before{content:"";position:absolute;inset:3px;border-radius:50%;background:rgba(255,193,7,.38)}
+.pill{position:absolute;z-index:3;display:flex;align-items:center;gap:2px;background:#1f2430;color:#fff;border-radius:14px;padding:3px 3px 3px 12px;box-shadow:0 4px 14px rgba(0,0,0,.4);transform:translate(26px,-50%)}
+.pill.flip{transform:translate(calc(-100% - 26px),-50%)}
+.pill .pt{flex:1;min-width:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:4px}
+.pill .pt.untitled{color:#9aa1b5;font-weight:500;font-style:italic}
+.pill button{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;flex:none}
+.pill button:active{background:rgba(255,255,255,.18)}
+.pill .open{background:#3b5bdb}
+.pill .open:active{background:#2f4bc0}
+
+/* ---------- Нижняя панель заметки ---------- */
+.sheet{position:fixed;left:0;right:0;bottom:0;height:50vh;height:50dvh;z-index:10;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;transform:translateY(106%);transition:transform .24s ease,height .2s ease;padding-bottom:env(safe-area-inset-bottom)}
+.sheet.open{transform:none}
+.sheet.tall{height:88vh;height:88dvh}
+.sheet.kb{height:calc(100vh - 8px);height:calc(100dvh - 8px)}
+.grab{height:16px;flex:none;display:grid;place-items:center;cursor:pointer}
+.grab::before{content:"";width:44px;height:5px;border-radius:3px;background:#cdd1dc}
+.sh-head{display:flex;align-items:center;gap:4px;padding:0 6px 0 14px;flex:none}
+#noteTitle{flex:1;min-width:0;height:44px;border:0;outline:0;font:inherit;font-size:18px;font-weight:650;background:transparent;-webkit-user-select:text;user-select:text}
+#noteTitle::placeholder{color:#a3a9b8;font-weight:500}
+.sh-head .icon-btn{color:#4a5163}
+#btnDelNote{color:#c92a2a}
+.sh-tools{display:flex;align-items:center;gap:1px;padding:2px 6px 6px;flex:none;border-bottom:1px solid #e6e8ef;overflow-x:auto}
+.tab{height:38px;min-width:46px;justify-content:center;padding:0 10px;border-radius:10px;font-weight:600;font-size:14.5px;color:#59606f;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.tab.on{background:#e8edff;color:#2a45b8}
+.tab .dot{width:7px;height:7px;border-radius:50%;background:#3b5bdb}
+.sep{width:1px;height:24px;background:#dfe2ea;margin:0 5px;flex:none}
+.tool{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:#4a5163;flex:none}
+.tool.on{background:#e8edff;color:#2a45b8}
+.tool:disabled{opacity:.35}
+.tool svg{width:22px;height:22px}
+.sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px #c6cad6}
+.tool.on .sw{box-shadow:0 0 0 2.5px #3b5bdb}
+.wdot{background:#2b2f3a;border-radius:50%}
+.sh-body{flex:1;min-height:0;position:relative}
+#inkWrap{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;background:#fffefa;overscroll-behavior:contain}
+#ink{display:block;touch-action:none}
+#noteText{position:absolute;inset:0;width:100%;height:100%;border:0;outline:0;resize:none;padding:14px 16px;font:inherit;font-size:17px;line-height:1.5;background:#fff;-webkit-user-select:text;user-select:text}
+
+/* ---------- Диалоги/тосты ---------- */
+.dlg{position:fixed;inset:0;z-index:50;background:rgba(15,18,28,.5);display:grid;place-items:center;padding:20px}
+.dlg .card{width:min(420px,100%);background:#fff;border-radius:18px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.dlg p{margin:2px 2px 14px;font-size:16.5px;line-height:1.4;white-space:pre-line}
+.dlg .btns{display:flex;flex-direction:column;gap:8px}
+.dlg .btns button{height:48px;border-radius:12px;background:#eef0f6;font-weight:600}
+.dlg .btns button.primary{background:#3b5bdb;color:#fff}
+.dlg .btns button.danger{background:#ffe3e3;color:#b02020}
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;background:#1f2430;color:#fff;padding:11px 16px;border-radius:12px;font-size:14.5px;max-width:92vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+#loading{position:fixed;inset:0;z-index:70;background:rgba(243,244,247,.86);display:grid;place-items:center;color:#2b2f3a;font-weight:600}
+#loading div{display:flex;flex-direction:column;align-items:center;gap:14px}
+.spin{width:38px;height:38px;border-radius:50%;border:4px solid #cfd4e4;border-top-color:#3b5bdb;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- Библиотека -->
+<section id="lib" class="screen">
+  <div class="lib-head">
+    <h1>PDF-заметки</h1>
+    <button class="icon-btn" id="btnMenu" aria-label="Меню"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></button>
+  </div>
+  <div class="lib-body" id="libBody"></div>
+  <button class="fab" id="btnOpen"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Открыть PDF</button>
+  <input type="file" id="fileIn" accept="application/pdf,.pdf" hidden>
+  <input type="file" id="restoreIn" accept="application/json,.json" hidden>
+</section>
+
+<!-- Читалка -->
+<section id="reader" class="screen" hidden>
+  <div class="bar">
+    <button class="icon-btn" id="btnBack" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="ttl"><div class="t1" id="rdTitle"></div><div class="t2" id="rdSub"></div></div>
+    <button class="icon-btn" id="btnZoomOut" aria-label="Уменьшить"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="icon-btn" id="btnZoomIn" aria-label="Увеличить"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="icon-btn" id="btnStarMode" aria-label="Поставить звёздочку"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"/></svg></button>
+  </div>
+  <div id="banner" hidden><span>Коснитесь места в документе, чтобы поставить звёздочку</span></div>
+  <div id="viewer"><div id="pages"></div></div>
+
+  <div class="sheet" id="sheet" aria-hidden="true">
+    <div class="grab" id="grab" aria-label="Развернуть/свернуть панель"></div>
+    <div class="sh-head">
+      <input id="noteTitle" type="text" maxlength="140" placeholder="Заголовок заметки" autocomplete="off" enterkeyhint="done">
+      <button class="icon-btn" id="btnDelNote" aria-label="Удалить заметку"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+      <button class="icon-btn" id="btnCloseNote" aria-label="Закрыть заметку"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    </div>
+    <div class="sh-tools" id="tools">
+      <button class="tab on" id="tabInk" data-tab="ink" aria-label="Рукопись"><svg viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg><span class="dot" id="dotInk" hidden></span></button>
+      <button class="tab" id="tabText" data-tab="text" aria-label="Текст"><b style="font-size:16px">Aa</b><span class="dot" id="dotText" hidden></span></button>
+      <span class="sep" id="sepInk"></span>
+      <span id="inkTools" style="display:contents">
+        <button class="tool on" id="toolPen" aria-label="Перо"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z M13.5 7.5l3 3"/></svg></button>
+        <button class="tool" id="toolEraser" aria-label="Ластик"><svg viewBox="0 0 24 24"><path d="M9 20h11M5.5 15.5l9-9 5 5-6.5 6.5H9z M9.5 11.5l5 5"/></svg></button>
+        <button class="tool on" data-color="#1b1d24" aria-label="Чёрный"><span class="sw" style="background:#1b1d24"></span></button>
+        <button class="tool" data-color="#1d4ed8" aria-label="Синий"><span class="sw" style="background:#1d4ed8"></span></button>
+        <button class="tool" data-color="#dc2626" aria-label="Красный"><span class="sw" style="background:#dc2626"></span></button>
+        <button class="tool" id="toolWidth" aria-label="Толщина"><span class="wdot" id="wdot" style="width:8px;height:8px"></span></button>
+        <button class="tool" id="toolUndo" aria-label="Отменить" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg></button>
+      </span>
+    </div>
+    <div class="sh-body">
+      <div id="inkWrap"><canvas id="ink"></canvas></div>
+      <textarea id="noteText" placeholder="Печатный текст заметки…" hidden></textarea>
+    </div>
+  </div>
+</section>
+
+<div class="dlg" id="dlg" hidden><div class="card"><p id="dlgText"></p><div class="btns" id="dlgBtns"></div></div></div>
+<div id="toast" hidden></div>
+<div id="loading" hidden><div><div class="spin"></div><span id="loadingText">Загрузка…</span></div></div>
+
+<script type="module">
+import * as pdfjsLib from './pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
+
+/* =========================================================
+   Утилиты
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const STAR_SVG = '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z" fill="#FFC107" stroke="#7a5200" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+const ICON_COLLAPSE = '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
+const ICON_NOTE = '<svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z M9 12h6M9 16h4"/></svg>';
+const TRASH = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+
+let toastTimer;
+function toast(text, ms = 2600) {
+  const t = $('#toast'); t.textContent = text; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms);
+}
+function showLoading(text) { $('#loadingText').textContent = text || 'Загрузка…'; $('#loading').hidden = false; }
+function hideLoading() { $('#loading').hidden = true; }
+
+function ask(text, buttons) {
+  return new Promise(res => {
+    const dlg = $('#dlg'), box = $('#dlgBtns');
+    $('#dlgText').textContent = text; $('#dlgText').hidden = !text;
+    box.innerHTML = '';
+    const done = v => { dlg.hidden = true; res(v); };
+    buttons.forEach(b => {
+      const x = document.createElement('button');
+      x.textContent = b.label; x.className = b.cls || '';
+      x.onclick = () => done(b.value);
+      box.append(x);
+    });
+    dlg.onclick = e => { if (e.target === dlg) done(null); };
+    dlg.hidden = false;
+  });
+}
+
+/* =========================================================
+   Хранилище (IndexedDB)
+   ========================================================= */
+let DBP;
+function idb() {
+  return DBP || (DBP = new Promise((res, rej) => {
+    const r = indexedDB.open('pdfnotes', 1);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      db.createObjectStore('files', { keyPath: 'fp' });
+      db.createObjectStore('blobs', { keyPath: 'fp' });
+      db.createObjectStore('notes', { keyPath: 'id' }).createIndex('fp', 'fp');
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+}
+const rq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const txDone = t => new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
+async function dbGet(s, k) { const db = await idb(); return rq(db.transaction(s).objectStore(s).get(k)); }
+async function dbAll(s) { const db = await idb(); return rq(db.transaction(s).objectStore(s).getAll()); }
+async function dbPut(s, v) { const db = await idb(); const t = db.transaction(s, 'readwrite'); t.objectStore(s).put(v); return txDone(t); }
+async function dbDel(s, k) { const db = await idb(); const t = db.transaction(s, 'readwrite'); t.objectStore(s).delete(k); return txDone(t); }
+async function notesOf(fp) { const db = await idb(); return rq(db.transaction('notes').objectStore('notes').index('fp').getAll(fp)); }
+
+/* =========================================================
+   Состояние
+   ========================================================= */
+const S = {
+  depth: 0,            // 0 библиотека, 1 читалка, 2 панель заметки
+  gen: 0,              // поколение открытого документа
+  fp: null, meta: null, pdf: null,
+  pages: [], zoom: 1,
+  notes: [], pillId: null, openId: null, starMode: false,
+  installEv: null,
+};
+const PAD = 10, MIN_Z = 0.4, MAX_Z = 4, MAXPX = 9e6;
+const viewer = $('#viewer'), pagesEl = $('#pages'), reader = $('#reader');
+
+/* =========================================================
+   Библиотека
+   ========================================================= */
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const fmtMB = b => (b / 1048576 >= 10 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + ' МБ';
+function plural(n, a, b, c) { const m = n % 100, d = n % 10; return (m > 10 && m < 15) ? c : d === 1 ? a : (d >= 2 && d <= 4) ? b : c; }
+
+async function renderLib() {
+  const [files, notes] = await Promise.all([dbAll('files'), dbAll('notes')]);
+  const counts = {}; notes.forEach(n => counts[n.fp] = (counts[n.fp] || 0) + 1);
+  files.sort((a, b) => (b.openedAt || 0) - (a.openedAt || 0));
+  const body = $('#libBody'); let html = '';
+  if (S.installEv && !isStandalone()) {
+    html += `<div class="install"><span>Поставьте приложение на главный экран</span><button id="btnInstall">Установить</button></div>`;
+  }
+  if (!files.length) {
+    html += `<div class="empty"><h2>Здесь пока пусто</h2>
+      <ol><li>Нажмите «Открыть PDF» и выберите файл.</li>
+      <li>В документе нажмите ★ вверху и коснитесь нужного места — появится звёздочка.</li>
+      <li>Нажмите на звёздочку: покажется заголовок. Значок заметки откроет панель для записей пером и текста.</li></ol></div>`;
+    if (!S.installEv && !isStandalone()) html += `<div class="hint">Чтобы поставить на главный экран: меню Chrome ⋮ → «Установить приложение» (или «Добавить на главный экран»).</div>`;
+  } else {
+    html += files.map(f => {
+      const c = counts[f.fp] || 0;
+      return `<div class="file" data-fp="${esc(f.fp)}"><div class="info"><div class="name">${esc(f.name)}</div>
+        <div class="meta">${f.pages ? f.pages + ' ' + plural(f.pages, 'стр.', 'стр.', 'стр.') + ' · ' : ''}${fmtMB(f.size)} · ${c} ${plural(c, 'заметка', 'заметки', 'заметок')}</div></div>
+        <button class="icon-btn" data-del="${esc(f.fp)}" aria-label="Удалить">${TRASH}</button></div>`;
+    }).join('');
+  }
+  body.innerHTML = html;
+  const bi = $('#btnInstall'); if (bi) bi.onclick = installApp;
+}
+async function installApp() {
+  const ev = S.installEv; if (!ev) return;
+  ev.prompt(); try { await ev.userChoice; } catch {}
+  S.installEv = null; renderLib();
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEv = e; if (S.depth === 0) renderLib(); });
+window.addEventListener('appinstalled', () => { S.installEv = null; if (S.depth === 0) renderLib(); });
+
+$('#libBody').addEventListener('click', async e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    const fp = del.dataset.del;
+    const f = await dbGet('files', fp);
+    const v = await ask(`Удалить «${f ? f.name : 'файл'}» из приложения?`, [
+      { label: 'Только файл (заметки сохранятся)', value: 'file' },
+      { label: 'Файл и все его заметки', value: 'all', cls: 'danger' },
+      { label: 'Отмена', value: null }]);
+    if (!v) return;
+    await dbDel('files', fp); await dbDel('blobs', fp);
+    if (v === 'all') for (const n of await notesOf(fp)) await dbDel('notes', n.id);
+    renderLib(); return;
+  }
+  const card = e.target.closest('.file');
+  if (card) openFile(card.dataset.fp);
+});
+
+$('#btnOpen').onclick = () => { $('#fileIn').value = ''; $('#fileIn').click(); };
+$('#fileIn').onchange = async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const fp = await addFile(f); if (fp) openFile(fp);
+};
+
+async function addFile(file) {
+  try {
+    const fp = file.name + '|' + file.size;
+    const old = await dbGet('files', fp);
+    if (!old) {
+      showLoading('Сохраняю копию в приложении…');
+      await dbPut('blobs', { fp, blob: file });
+      await dbPut('files', { fp, name: file.name, size: file.size, pages: 0, addedAt: Date.now(), openedAt: Date.now() });
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    }
+    return fp;
+  } catch (err) {
+    console.error(err);
+    toast(err && err.name === 'QuotaExceededError' ? 'Не хватает места для сохранения файла' : 'Не удалось сохранить файл');
+    return null;
+  } finally { hideLoading(); }
+}
+
+/* ---- меню: резервная копия ---- */
+$('#btnMenu').onclick = async () => {
+  const buttons = [
+    { label: 'Сохранить заметки в файл', value: 'export' },
+    { label: 'Восстановить заметки из файла', value: 'import' }];
+  if (S.installEv && !isStandalone()) buttons.unshift({ label: 'Установить на главный экран', value: 'install', cls: 'primary' });
+  buttons.push({ label: 'Закрыть', value: null });
+  const v = await ask('', buttons);
+  if (v === 'export') exportNotes();
+  else if (v === 'import') { $('#restoreIn').value = ''; $('#restoreIn').click(); }
+  else if (v === 'install') installApp();
+};
+async function exportNotes() {
+  const [notes, files] = await Promise.all([dbAll('notes'), dbAll('files')]);
+  if (!notes.length) { toast('Заметок пока нет'); return; }
+  const data = { app: 'pdfnotes', v: 1, exported: new Date().toISOString(), files: files.map(f => ({ fp: f.fp, name: f.name, size: f.size })), notes };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pdf-zametki-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('Копия сохранена в «Загрузки»: ' + notes.length + ' ' + plural(notes.length, 'заметка', 'заметки', 'заметок'), 4000);
+}
+$('#restoreIn').onchange = async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (data.app !== 'pdfnotes' || !Array.isArray(data.notes)) throw new Error('bad');
+    let n = 0;
+    for (const note of data.notes) {
+      if (!note.id || !note.fp) continue;
+      const cur = await dbGet('notes', note.id);
+      if (!cur || (cur.updatedAt || 0) < (note.updatedAt || 0)) { await dbPut('notes', note); n++; }
+    }
+    await renderLib();
+    toast(`Восстановлено заметок: ${n}. Заметки появятся, когда откроете соответствующий PDF.`, 4500);
+  } catch { toast('Это не файл резервной копии'); }
+};
+
+/* =========================================================
+   Открытие документа
+   ========================================================= */
+async function openFile(fp) {
+  showLoading('Открываю документ…');
+  try {
+    const meta = await dbGet('files', fp);
+    const rec = await dbGet('blobs', fp);
+    if (!meta || !rec) { toast('Файл не найден'); renderLib(); return; }
+    const buf = new Uint8Array(await rec.blob.arrayBuffer());
+    const task = pdfjsLib.getDocument({ data: buf, standardFontDataUrl: './standard_fonts/', wasmUrl: './wasm/', iccUrl: './iccs/' });
+    const pdf = await task.promise;
+    const first = await pdf.getPage(1);
+    const vp = first.getViewport({ scale: 1 });
+
+    closeReaderState();                      // на случай открытого ранее
+    const gen = ++S.gen;
+    S.fp = fp; S.meta = meta; S.pdf = pdf;
+    S.zoom = clamp(meta.zoom || 1, MIN_Z, MAX_Z);
+    S.notes = await notesOf(fp);
+    S.pillId = null; S.openId = null;
+    meta.pages = pdf.numPages; meta.openedAt = Date.now();
+    dbPut('files', meta);
+
+    $('#rdTitle').textContent = meta.name;
+    reader.hidden = false; $('#lib').hidden = true;
+    history.pushState({ d: 1 }, ''); S.depth = 1;
+
+    buildPages(pdf.numPages, vp.width, vp.height);
+    layout();
+    restorePos(meta.lastPage || 0, meta.lastFrac || 0);
+    updateIndicator();
+    loadSizes(gen);                          // реальные размеры остальных страниц
+  } catch (err) {
+    console.error(err);
+    const pw = err && (err.name === 'PasswordException');
+    toast(pw ? 'Документ защищён паролем — такие пока не поддерживаются' : 'Не удалось открыть PDF');
+    renderLib();
+  } finally { hideLoading(); }
+}
+
+function buildPages(n, vw, vh) {
+  pagesEl.innerHTML = ''; S.pages = [];
+  io.disconnect();
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div');
+    el.className = 'page'; el.dataset.i = i;
+    el.innerHTML = '<div class="ov"></div>';
+    pagesEl.append(el);
+    const p = { i, n: i + 1, el, ov: el.firstChild, vw, ratio: vh / vw, w: 0, h: 0, canvas: null, key: null, near: false, token: 0 };
+    S.pages.push(p); io.observe(el);
+  }
+  S.pages.forEach(p => renderStars(p.i));
+}
+async function loadSizes(gen) {
+  const pdf = S.pdf; let changed = false;
+  for (let i = 0; i < S.pages.length; i += 12) {
+    if (gen !== S.gen) return;
+    const batch = S.pages.slice(i, i + 12);
+    await Promise.all(batch.map(async p => {
+      try {
+        const pg = await pdf.getPage(p.n); const v = pg.getViewport({ scale: 1 });
+        if (Math.abs(v.height / v.width - p.ratio) > 0.002 || Math.abs(v.width - p.vw) > 0.5) { p.vw = v.width; p.ratio = v.height / v.width; changed = true; }
+      } catch {}
+    }));
+  }
+  if (gen === S.gen && changed) { const pos = getPos(); layout(); setPos(pos); invalidateAll(); }
+}
+
+/* ---- раскладка и позиция ---- */
+function layout() {
+  const avail = Math.max(160, viewer.clientWidth - 2 * PAD);
+  const w = avail * S.zoom;
+  for (const p of S.pages) {
+    p.w = w; p.h = w * p.ratio;
+    p.el.style.width = w + 'px'; p.el.style.height = p.h + 'px';
+  }
+}
+function getPos(atCenter) {
+  const y = viewer.scrollTop + (atCenter ? viewer.clientHeight / 2 : 0);
+  for (const p of S.pages) {
+    const top = p.el.offsetTop, h = p.el.offsetHeight;
+    if (top + h + PAD / 2 > y) return { page: p.i, frac: clamp((y - top) / h, 0, 1) };
+  }
+  return { page: Math.max(0, S.pages.length - 1), frac: 0 };
+}
+function setPos(pos, atCenter) {
+  const p = S.pages[clamp(pos.page, 0, S.pages.length - 1)]; if (!p) return;
+  viewer.scrollTop = p.el.offsetTop + pos.frac * p.el.offsetHeight - (atCenter ? viewer.clientHeight / 2 : 0);
+}
+function restorePos(page, frac) { setPos({ page, frac }); }
+function updateIndicator() {
+  if (!S.pages.length) return;
+  const pos = getPos(true);
+  $('#rdSub').textContent = `стр. ${pos.page + 1} из ${S.pages.length} · ${Math.round(S.zoom * 100)}%`;
+  return pos;
+}
+let posTimer;
+viewer.addEventListener('scroll', () => {
+  updateIndicator();
+  clearTimeout(posTimer);
+  posTimer = setTimeout(savePos, 700);
+}, { passive: true });
+function savePos() {
+  if (!S.meta || S.depth < 1) return;
+  const pos = getPos(false);
+  S.meta.lastPage = pos.page; S.meta.lastFrac = pos.frac; S.meta.zoom = S.zoom;
+  dbPut('files', S.meta).catch(() => {});
+}
+let rzTimer;
+window.addEventListener('resize', () => {
+  if (S.depth < 1 || !S.pages.length) return;
+  clearTimeout(rzTimer);
+  rzTimer = setTimeout(() => {
+    const pos = getPos(); layout(); setPos(pos); invalidateAll(); updateIndicator();
+    if (S.openId) ink.fit();
+  }, 150);
+});
+
+/* ---- масштаб ---- */
+function applyZoom(newZ, cx, cy) {
+  newZ = clamp(newZ, MIN_Z, MAX_Z);
+  const r = newZ / S.zoom; if (Math.abs(r - 1) < 0.001) return;
+  const ox = viewer.scrollLeft + cx, oy = viewer.scrollTop + cy;
+  S.zoom = newZ; layout();
+  viewer.scrollLeft = ox * r - cx; viewer.scrollTop = oy * r - cy;
+  invalidateAll(); updateIndicator(); savePos();
+}
+$('#btnZoomIn').onclick = () => applyZoom(S.zoom * 1.25, viewer.clientWidth / 2, viewer.clientHeight / 2);
+$('#btnZoomOut').onclick = () => applyZoom(S.zoom / 1.25, viewer.clientWidth / 2, viewer.clientHeight / 2);
+
+let pin = null;
+const tdist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+viewer.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    const [a, b] = e.touches, r = viewer.getBoundingClientRect();
+    pin = { d0: tdist(a, b), s: 1, cx: (a.clientX + b.clientX) / 2 - r.left, cy: (a.clientY + b.clientY) / 2 - r.top };
+    pagesEl.style.transformOrigin = `${viewer.scrollLeft + pin.cx}px ${viewer.scrollTop + pin.cy}px`;
+  }
+}, { passive: true });
+viewer.addEventListener('touchmove', e => {
+  if (!pin || e.touches.length !== 2) return;
+  if (e.cancelable) e.preventDefault();
+  const [a, b] = e.touches;
+  pin.s = clamp(tdist(a, b) / pin.d0, MIN_Z / S.zoom, MAX_Z / S.zoom);
+  pagesEl.style.transform = `scale(${pin.s})`;
+}, { passive: false });
+const endPinch = e => {
+  if (pin && e.touches.length < 2) {
+    const p = pin; pin = null;
+    pagesEl.style.transform = ''; pagesEl.style.transformOrigin = '';
+    applyZoom(S.zoom * p.s, p.cx, p.cy);
+  }
+};
+viewer.addEventListener('touchend', endPinch, { passive: true });
+viewer.addEventListener('touchcancel', endPinch, { passive: true });
+
+/* ---- ленивый рендер страниц ---- */
+const io = new IntersectionObserver(entries => {
+  for (const en of entries) {
+    const p = S.pages[+en.target.dataset.i]; if (!p) continue;
+    p.near = en.isIntersecting;
+    if (p.near) enqueue(p); else release(p);
+  }
+}, { root: viewer, rootMargin: '120% 0px 120% 0px' });
+
+const pending = new Set(); let pumping = false;
+function enqueue(p) { pending.add(p); pump(); }
+function invalidateAll() { for (const p of S.pages) { p.key = null; if (p.near) pending.add(p); } pump(); }
+function release(p) {
+  pending.delete(p); p.token++;
+  if (p.task) { try { p.task.cancel(); } catch {} p.task = null; }
+  if (p.canvas) { p.canvas.width = p.canvas.height = 0; p.canvas.remove(); p.canvas = null; }
+  p.key = null;
+}
+async function pump() {
+  if (pumping) return; pumping = true;
+  try {
+    while (pending.size) {
+      const cy = viewer.scrollTop + viewer.clientHeight / 2;
+      let best = null, bd = Infinity;
+      for (const p of pending) {
+        const d = Math.abs(p.el.offsetTop + p.el.offsetHeight / 2 - cy);
+        if (d < bd) { bd = d; best = p; }
+      }
+      pending.delete(best);
+      if (best.near) await renderPage(best);
+    }
+  } finally { pumping = false; }
+}
+async function renderPage(p) {
+  const gen = S.gen, token = ++p.token;
+  try {
+    const page = await S.pdf.getPage(p.n);
+    if (gen !== S.gen || token !== p.token) return;
+    const v1 = page.getViewport({ scale: 1 });
+    if (Math.abs(v1.height / v1.width - p.ratio) > 0.002 || Math.abs(v1.width - p.vw) > 0.5) {
+      p.vw = v1.width; p.ratio = v1.height / v1.width;
+      const pos = getPos(); layout(); setPos(pos);
+    }
+    let q = Math.min(window.devicePixelRatio || 1, 3);
+    q = Math.min(q, Math.sqrt(MAXPX / (p.w * p.h)));
+    const key = Math.round(p.w) + '|' + q.toFixed(2);
+    if (p.key === key && p.canvas) return;
+    const vp = page.getViewport({ scale: (p.w / v1.width) * q });
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.floor(vp.width)); c.height = Math.max(1, Math.floor(vp.height));
+    const task = page.render({ canvas: c, viewport: vp });
+    p.task = task;
+    await task.promise;
+    p.task = null;
+    if (gen !== S.gen || token !== p.token || !p.near) { c.width = c.height = 0; return; }
+    if (p.canvas) { p.canvas.width = p.canvas.height = 0; p.canvas.remove(); }
+    p.el.insertBefore(c, p.ov); p.canvas = c; p.key = key;
+  } catch (err) {
+    if (err && err.name === 'RenderingCancelledException') return;
+    console.warn('render', p.n, err);
+  }
+}
+
+function closeReaderState() {
+  S.gen++;
+  pending.clear(); io.disconnect();
+  for (const p of S.pages) { if (p.task) try { p.task.cancel(); } catch {} if (p.canvas) p.canvas.width = p.canvas.height = 0; }
+  S.pages = []; pagesEl.innerHTML = '';
+  if (S.pdf) { try { S.pdf.destroy(); } catch {} S.pdf = null; }
+  setStarMode(false);
+}
+
+/* =========================================================
+   Звёздочки
+   ========================================================= */
+function setStarMode(on) {
+  S.starMode = on;
+  reader.classList.toggle('star-mode', on);
+  $('#btnStarMode').classList.toggle('on', on);
+  $('#banner').hidden = !on;
+}
+$('#btnStarMode').onclick = () => {
+  if (S.depth === 2) { history.back(); setTimeout(() => setStarMode(true), 60); return; }
+  setStarMode(!S.starMode);
+};
+$('#banner').onclick = () => setStarMode(false);
+
+function renderStars(i) {
+  const p = S.pages[i]; if (!p) return;
+  const list = S.notes.filter(n => n.page === i);
+  p.ov.innerHTML = list.map(n => {
+    // сторона и ширина плашки — по свободному месту рядом со звёздочкой
+    const sx = p.el.offsetLeft + n.x * p.el.offsetWidth - viewer.scrollLeft;
+    const roomR = viewer.clientWidth - sx - 34, roomL = sx - 34;
+    const left = roomR < 230 && roomL > roomR;
+    const flip = left ? ' flip' : '';
+    const pw = Math.floor(clamp(left ? roomL : roomR, 150, 340));
+    const title = n.title && n.title.trim();
+    const style = `left:${(n.x * 100).toFixed(3)}%;top:${(n.y * 100).toFixed(3)}%`;
+    let h = `<button class="star${S.openId === n.id ? ' active' : ''}" data-id="${n.id}" style="${style}" aria-label="Заметка">${STAR_SVG}</button>`;
+    if (S.pillId === n.id) {
+      h += `<div class="pill${flip}" data-id="${n.id}" style="${style};max-width:${pw}px">
+        <span class="pt${title ? '' : ' untitled'}">${title ? esc(title) : 'Без названия'}</span>
+        <button class="collapse" data-act="collapse" aria-label="Свернуть заголовок">${ICON_COLLAPSE}</button>
+        <button class="open" data-act="open" aria-label="Открыть заметку">${ICON_NOTE}</button></div>`;
+    }
+    return h;
+  }).join('');
+}
+function renderAllStars() { S.pages.forEach(p => renderStars(p.i)); }
+
+pagesEl.addEventListener('click', async e => {
+  const pageEl = e.target.closest('.page'); if (!pageEl) return;
+  const p = S.pages[+pageEl.dataset.i];
+  const star = e.target.closest('.star'), act = e.target.closest('[data-act]');
+  if (act) {
+    const id = act.closest('.pill').dataset.id;
+    if (act.dataset.act === 'collapse') { S.pillId = null; renderStars(p.i); }
+    else openNote(id);
+    return;
+  }
+  if (star) {
+    const id = star.dataset.id;
+    const prev = S.notes.find(n => n.id === S.pillId);
+    S.pillId = (S.pillId === id) ? null : id;
+    if (prev) renderStars(prev.page);
+    renderStars(p.i); return;
+  }
+  if (e.target.closest('.pill')) return;
+  if (S.starMode) {
+    const r = pageEl.getBoundingClientRect();
+    const x = clamp((e.clientX - r.left) / r.width, 0.01, 0.99), y = clamp((e.clientY - r.top) / r.height, 0.01, 0.99);
+    const note = { id: uid(), fp: S.fp, page: p.i, x, y, title: '', text: '', strokes: [], h: 700, created: Date.now(), updatedAt: Date.now() };
+    S.notes.push(note);
+    try { await dbPut('notes', note); } catch { toast('Не удалось сохранить заметку'); }
+    setStarMode(false);
+    S.pillId = null;
+    renderStars(p.i);
+    openNote(note.id, { focusTitle: true });
+  } else if (S.pillId) {
+    const prev = S.notes.find(n => n.id === S.pillId); S.pillId = null;
+    if (prev) renderStars(prev.page);
+  }
+});
+
+/* =========================================================
+   Нижняя панель заметки
+   ========================================================= */
+const sheet = $('#sheet'), titleIn = $('#noteTitle'), textIn = $('#noteText');
+let cur = null;                         // открытая заметка
+let saveTimer = null;
+
+function noteIsEmpty(n) { return !(n.title || '').trim() && !(n.text || '').trim() && !(n.strokes && n.strokes.length); }
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 450); }
+async function flushSave() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!cur) return;
+  cur.updatedAt = Date.now();
+  try { await dbPut('notes', cur); } catch (e) { console.error(e); toast('Не удалось сохранить заметку'); }
+}
+function updateDots() {
+  $('#dotInk').hidden = !(cur && cur.strokes.length);
+  $('#dotText').hidden = !(cur && (cur.text || '').trim());
+}
+
+function openNote(id, opts = {}) {
+  const n = S.notes.find(x => x.id === id); if (!n) return;
+  if (cur && cur.id !== id) finishNote();
+  cur = n; S.openId = id;
+  titleIn.value = n.title || ''; textIn.value = n.text || '';
+  if (S.depth < 2) { history.pushState({ d: 2 }, ''); S.depth = 2; }
+  reader.classList.add('sheet-open');
+  sheet.classList.remove('kb'); sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false');
+  const tab = (!n.strokes.length && (n.text || '').trim()) ? 'text' : 'ink';
+  setTab(tab);
+  updateDots();
+  renderAllStars();
+  requestAnimationFrame(() => { scrollStarIntoView(n); });
+  if (opts.focusTitle) setTimeout(() => titleIn.focus(), 260);
+}
+function scrollStarIntoView(n) {
+  const p = S.pages[n.page]; if (!p) return;
+  const visibleH = viewer.clientHeight - sheet.getBoundingClientRect().height;
+  const starY = p.el.offsetTop + n.y * p.el.offsetHeight;
+  const starX = p.el.offsetLeft + n.x * p.el.offsetWidth;
+  const targetTop = starY - Math.max(80, visibleH * 0.4);
+  viewer.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+  if (starX < viewer.scrollLeft || starX > viewer.scrollLeft + viewer.clientWidth) viewer.scrollTo({ left: starX - viewer.clientWidth / 2, top: Math.max(0, targetTop), behavior: 'smooth' });
+}
+function finishNote() {
+  if (!cur) return;
+  const n = cur;
+  clearTimeout(saveTimer); saveTimer = null;
+  if (noteIsEmpty(n)) {
+    S.notes = S.notes.filter(x => x.id !== n.id);
+    dbDel('notes', n.id).catch(() => {});
+    if (S.pillId === n.id) S.pillId = null;
+  } else { n.updatedAt = Date.now(); dbPut('notes', n).catch(() => {}); }
+  S.openId = null; cur = null;
+  renderStars(n.page);
+}
+function closeSheetUI() {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  finishNote();
+  sheet.classList.remove('open', 'kb', 'tall'); sheet.setAttribute('aria-hidden', 'true');
+  reader.classList.remove('sheet-open');
+  renderAllStars();
+}
+$('#btnCloseNote').onclick = () => { if (S.depth === 2) history.back(); else closeSheetUI(); };
+$('#grab').onclick = () => sheet.classList.toggle('tall');
+
+$('#btnDelNote').onclick = async () => {
+  if (!cur) return;
+  const empty = noteIsEmpty(cur);
+  const v = empty ? 'del' : await ask('Удалить эту заметку вместе со звёздочкой?', [
+    { label: 'Удалить', value: 'del', cls: 'danger' }, { label: 'Отмена', value: null }]);
+  if (v !== 'del') return;
+  const n = cur; n.title = ''; n.text = ''; n.strokes = [];   // finishNote удалит пустую
+  if (S.depth === 2) history.back(); else closeSheetUI();
+};
+
+titleIn.addEventListener('input', () => {
+  if (!cur) return; cur.title = titleIn.value; scheduleSave();
+  const p = S.pages[cur.page]; if (p && S.pillId === cur.id) renderStars(p.i);
+});
+titleIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); titleIn.blur(); } });
+textIn.addEventListener('input', () => { if (!cur) return; cur.text = textIn.value; updateDots(); scheduleSave(); });
+for (const f of [titleIn, textIn]) {
+  f.addEventListener('focus', () => sheet.classList.add('kb'));
+  f.addEventListener('blur', () => { sheet.classList.remove('kb'); flushSave(); });
+}
+
+/* ---- вкладки ---- */
+let tab = 'ink';
+function setTab(t) {
+  tab = t;
+  $('#tabInk').classList.toggle('on', t === 'ink'); $('#tabText').classList.toggle('on', t === 'text');
+  $('#inkWrap').hidden = t !== 'ink'; textIn.hidden = t !== 'text';
+  $('#inkTools').style.display = t === 'ink' ? 'contents' : 'none'; $('#sepInk').hidden = t !== 'ink';
+  if (t === 'ink') ink.load(cur);
+}
+$('#tabInk').onclick = () => setTab('ink');
+$('#tabText').onclick = () => { setTab('text'); setTimeout(() => textIn.focus(), 30); };
+
+/* =========================================================
+   Рукописный холст
+   ========================================================= */
+const ink = (() => {
+  const LW = 800;                                   // логическая ширина холста
+  const wrap = $('#inkWrap'), cv = $('#ink'), ctx = cv.getContext('2d');
+  const WIDTHS = [2, 3.4, 6], COLORS = ['#1b1d24', '#1d4ed8', '#dc2626'];
+  let note = null, scale = 1, tool = 'pen', color = COLORS[0], wi = 1;
+  let history = [], drawing = null, panning = null, erased = null;
+
+  const factor = (pt, type) => type === 'pen' ? 0.5 + (pt[2] || 0.5) : 1;
+
+  function fit() {
+    if (!note) return;
+    const cssW = wrap.clientWidth; if (!cssW) return;
+    scale = cssW / LW;
+    const minH = wrap.clientHeight / scale;
+    note.h = Math.max(note.h || 700, Math.ceil(minH));
+    const cssH = note.h * scale, dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
+    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+    ctx.setTransform(cv.width / LW, 0, 0, cv.width / LW, 0, 0);
+    redraw();
+  }
+  function redraw() {
+    if (!note) return;
+    const H = note.h;
+    ctx.clearRect(0, 0, LW, H);
+    ctx.fillStyle = '#fffefa'; ctx.fillRect(0, 0, LW, H);
+    ctx.strokeStyle = '#e8ebf3'; ctx.lineWidth = 1;
+    ctx.beginPath(); for (let y = 60; y < H; y += 60) { ctx.moveTo(0, y); ctx.lineTo(LW, y); } ctx.stroke();
+    for (const s of note.strokes) drawStroke(s);
+    if (!note.strokes.length && !drawing) {
+      ctx.fillStyle = '#b7bccb'; ctx.font = '600 24px system-ui,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Пишите пером S Pen', LW / 2, 130);
+      ctx.font = '20px system-ui,sans-serif'; ctx.fillText('Пальцем — прокрутка холста', LW / 2, 166);
+    }
+  }
+  function drawStroke(s) {
+    const p = s.p, t = s.t || 'pen';
+    ctx.strokeStyle = s.c; ctx.fillStyle = s.c; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (p.length === 1) { ctx.beginPath(); ctx.arc(p[0][0], p[0][1], s.w * factor(p[0], t) / 2, 0, 7); ctx.fill(); return; }
+    for (let i = 1; i < p.length; i++) seg(s, i, t);
+  }
+  function seg(s, i, t) {
+    const p = s.p, a = p[i - 1], b = p[i], z = p[i - 2];
+    const m0 = z ? [(z[0] + a[0]) / 2, (z[1] + a[1]) / 2] : a;
+    const m1 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    ctx.lineWidth = s.w * factor(a, t);
+    ctx.beginPath(); ctx.moveTo(m0[0], m0[1]);
+    ctx.quadraticCurveTo(a[0], a[1], m1[0], m1[1]);
+    if (i === p.length - 1) ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+  }
+  const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale, e.pressure || 0.5]; };
+
+  function segDist(p, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy;
+    let t = l ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l : 0; t = clamp(t, 0, 1);
+    return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+  }
+  function eraseAt(p) {
+    const R = 16; let hit = false;
+    for (let i = note.strokes.length - 1; i >= 0; i--) {
+      const s = note.strokes[i], pts = s.p; let h = false;
+      if (pts.length === 1) h = Math.hypot(pts[0][0] - p[0], pts[0][1] - p[1]) < R;
+      else for (let k = 1; k < pts.length && !h; k++) h = segDist(p, pts[k - 1], pts[k]) < R + s.w / 2;
+      if (h) { erased.push({ i, s }); note.strokes.splice(i, 1); hit = true; }
+    }
+    if (hit) redraw();
+  }
+  function setUndo() { $('#toolUndo').disabled = !history.length; }
+
+  cv.addEventListener('pointerdown', e => {
+    if (!note) return;
+    if (e.pointerType === 'touch') {               // палец — только прокрутка
+      panning = { id: e.pointerId, y: e.clientY, top: wrap.scrollTop };
+      cv.setPointerCapture(e.pointerId); return;
+    }
+    if (e.button > 0 && e.button !== 2 && e.button !== 5) return;
+    e.preventDefault(); cv.setPointerCapture(e.pointerId);
+    const eraserBtn = (e.buttons & 32) || (e.buttons & 2) || e.button === 5;
+    const p = pt(e);
+    if (tool === 'eraser' || eraserBtn) { drawing = { id: e.pointerId, erase: true }; erased = []; eraseAt(p); return; }
+    drawing = { id: e.pointerId, type: e.pointerType, s: { c: color, w: WIDTHS[wi], t: e.pointerType === 'pen' ? 'pen' : 'mouse', p: [p] } };
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p[0], p[1], WIDTHS[wi] * factor(p, drawing.s.t) / 2, 0, 7); ctx.fill();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (panning && e.pointerId === panning.id) { wrap.scrollTop = panning.top - (e.clientY - panning.y); return; }
+    if (!drawing || e.pointerId !== drawing.id) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of (evs.length ? evs : [e])) {
+      const p = pt(ev);
+      if (drawing.erase) { eraseAt(p); continue; }
+      const s = drawing.s, last = s.p[s.p.length - 1];
+      if (Math.hypot(p[0] - last[0], p[1] - last[1]) < 0.6) continue;
+      s.p.push(p); seg(s, s.p.length - 1, s.t);
+      if (p[1] > note.h - 120 && note.h < 6000) { note.h += 400; fit(); }
+    }
+  });
+  const up = e => {
+    if (panning && e.pointerId === panning.id) { panning = null; return; }
+    if (!drawing || e.pointerId !== drawing.id) return;
+    if (drawing.erase) {
+      if (erased.length) history.push({ t: 'del', items: erased.reverse() });
+      erased = null;
+    } else {
+      note.strokes.push(drawing.s); history.push({ t: 'add', s: drawing.s });
+      redraw();
+    }
+    drawing = null; setUndo(); updateDots(); scheduleSave();
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+
+  function undo() {
+    const op = history.pop(); if (!op) return;
+    if (op.t === 'add') { const k = note.strokes.indexOf(op.s); if (k >= 0) note.strokes.splice(k, 1); }
+    else for (const it of op.items.slice().reverse()) note.strokes.splice(Math.min(it.i, note.strokes.length), 0, it.s);
+    redraw(); setUndo(); updateDots(); scheduleSave();
+  }
+
+  /* панель инструментов */
+  function setTool(t) { tool = t; $('#toolPen').classList.toggle('on', t === 'pen'); $('#toolEraser').classList.toggle('on', t === 'eraser'); }
+  $('#toolPen').onclick = () => setTool('pen');
+  $('#toolEraser').onclick = () => setTool('eraser');
+  document.querySelectorAll('[data-color]').forEach(b => b.onclick = () => {
+    color = b.dataset.color; setTool('pen');
+    document.querySelectorAll('[data-color]').forEach(x => x.classList.toggle('on', x === b));
+  });
+  $('#toolWidth').onclick = () => {
+    wi = (wi + 1) % WIDTHS.length; const d = [5, 9, 14][wi]; const w = $('#wdot'); w.style.width = w.style.height = d + 'px';
+  };
+  $('#toolUndo').onclick = undo;
+  { const w = $('#wdot'); w.style.width = w.style.height = '9px'; wi = 1; }
+
+  return {
+    load(n) { note = n; history = []; drawing = null; setUndo(); wrap.scrollTop = 0; requestAnimationFrame(fit); },
+    fit() { fit(); },
+  };
+})();
+
+/* =========================================================
+   Навигация (кнопка «назад» на Android)
+   ========================================================= */
+function leaveReader() {
+  flushSave(); savePos();
+  closeReaderState();
+  reader.classList.remove('sheet-open'); sheet.classList.remove('open', 'kb', 'tall');
+  reader.hidden = true; $('#lib').hidden = false;
+  S.fp = null; S.meta = null; S.notes = []; cur = null; S.openId = null;
+  renderLib();
+}
+window.addEventListener('popstate', e => {
+  const target = (e.state && e.state.d) || 0;
+  while (S.depth > target) {
+    if (S.depth === 2) closeSheetUI();
+    else if (S.depth === 1) leaveReader();
+    S.depth--;
+  }
+});
+$('#btnBack').onclick = () => { if (S.depth > 0) history.back(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) { flushSave(); savePos(); } });
+window.addEventListener('pagehide', () => { flushSave(); savePos(); });
+
+/* =========================================================
+   Запуск, «Поделиться → PDF-заметки», офлайн
+   ========================================================= */
+async function takeShared() {
+  try {
+    const c = await caches.open('pdfnotes-share');
+    const keys = await c.keys(); let first = null;
+    for (const k of keys) {
+      const r = await c.match(k); if (!r) continue;
+      const name = decodeURIComponent(r.headers.get('X-Name') || 'document.pdf');
+      const blob = await r.blob();
+      const fp = await addFile(new File([blob], name, { type: 'application/pdf' }));
+      if (fp && !first) first = fp;
+      await c.delete(k);
+    }
+    return first;
+  } catch (e) { console.warn(e); return null; }
+}
+(async function boot() {
+  history.replaceState({ d: 0 }, '');
+  await renderLib();
+  if (/[?&]shared=/.test(location.search)) {
+    history.replaceState({ d: 0 }, '', location.pathname);
+    const fp = await takeShared();
+    if (fp) openFile(fp); else renderLib();
+  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(e => console.warn('sw', e));
+})();
+</script>
+</body>
+</html>
